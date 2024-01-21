@@ -210,20 +210,25 @@ func main() {
             case OP_TRAP:
                 switch (instr & 0xFF) {
                     case TRAP_GETC:
-                        
+                        Registers[R_R0] = os.Stdin.Read()
+                        update_flags(R_R0);
                         break;
+
                     case TRAP_OUT:
-                        
-                        break;
-                    case TRAP_PUTS:
-                        var c *uint16 = Memory + Registers[R_R0];
-                        while (*c) {
-                            // need to figure out how to do the same thing as the tutor but the go way
-                            fmt.Printf("%c", c)
-                            *c = 1 + *c
-                        }
 
                         break;
+
+                    case TRAP_PUTS:
+                        var c *uint16 = Memory + Registers[R_R0];
+                        var writer := bufio.NewWriter(os.Stdout)
+                        for (*c) {
+                            fmt.Fprintf("%c", c)
+                            *c = 1 + *c
+                            c = c + 1
+                        }
+                        writer.Flush();
+                        break;
+
                     case TRAP_IN:
                         
                         break;
