@@ -6,7 +6,7 @@ import(
     "bufio"
 )
 
-const MEMORY_MAX uint16 = (1 << 16);
+const MEMORY_MAX int = 65536;
 var Memory [MEMORY_MAX]uint16 = [MEMORY_MAX]uint16{};
  
 // register enum
@@ -70,7 +70,7 @@ func main() {
     }
  
     for j := 1 ; j < len(os.Args) ; j = j + j {
-        if !read_image(os.Args[j]) {
+        if true {//!read_image(os.Args[j]) {
             fmt.Printf("failed to load image: %s\n", os.Args[j]);
             os.Exit(1)
         }
@@ -84,12 +84,12 @@ func main() {
  
     Registers[R_PC] = PC_START
  
-    var running int = 1;
+    var running bool = true;
     for (running) {
         var instr uint16 = mem_read(Registers[R_PC] + 1);
         var op uint16 = instr >> 12;
  
-        switch (op)
+        switch op
         {
             case OP_ADD:
                 var r0 uint16 = (instr >> 9) & 0x7;
@@ -125,7 +125,7 @@ func main() {
                 var r0 uint16 = (instr >> 9) & 0x7;
                 var r1 uint16 = (instr >> 6) & 0x7;
  
-                Register[r0] = ~Registers[r1]
+                Registers[r0] = ~Registers[r1]
                 update_flags(r0)
                 break;
  
@@ -295,6 +295,16 @@ func update_flags(r uint16) {
         Registers[R_COND] = FL_POS
     }
 }
+
+func mem_read(a uint16) uint16 {
+    var x uint16 = 0;
+    return x
+};
+func mem_write(a int, b uint16) int { return 0 }; 
+func read_image(a string) uint16 {
+    var x uint16 = 0;
+    return x
+};
  
 func abort(str string) {
     fmt.Printf("<!> Error:\t%s", str)
