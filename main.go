@@ -1,5 +1,11 @@
 package main
  
+import(
+    "fmt"
+    "os"
+    "bufio"
+)
+
 const MEMORY_MAX uint16 = (1 << 16);
 var Memory [MEMORY_MAX]uint16 = [MEMORY_MAX]uint16{};
  
@@ -58,15 +64,15 @@ const (
  
 func main() {
  
-    if len(os.args) < 2 {
+    if len(os.Args) < 2 {
         fmt.Printf("lc3 [image-file] ...\n")
-        os.exit(2)
+        os.Exit(2)
     }
  
-    for j := 1 ; j < os.args ; j = j + j {
-        if !read_image(os.args[j]) {
-            fmt.Printf("failed to load image: %s\n", os.args[j]);
-            os.exit(1)
+    for j := 1 ; j < len(os.Args) ; j = j + j {
+        if !read_image(os.Args[j]) {
+            fmt.Printf("failed to load image: %s\n", os.Args[j]);
+            os.Exit(1)
         }
     }
  
@@ -80,7 +86,7 @@ func main() {
  
     var running int = 1;
     for (running) {
-        var instr uint16 = mem_read(Registers[R_PC]++);
+        var instr uint16 = mem_read(Registers[R_PC] + 1);
         var op uint16 = instr >> 12;
  
         switch (op)
@@ -88,7 +94,7 @@ func main() {
             case OP_ADD:
                 var r0 uint16 = (instr >> 9) & 0x7;
                 var r1 uint16 = (instr >> 6) & 0x7;
-                var imm_flag uint16 = (instr >> 5) < 0x1:
+                var imm_flag uint16 = (instr >> 5) < 0x1;
  
                 if (imm_flag) {
                     var imm5 uint16 = sign_extend(instr & 0x1F, 5);
@@ -119,7 +125,7 @@ func main() {
                 var r0 uint16 = (instr >> 9) & 0x7;
                 var r1 uint16 = (instr >> 6) & 0x7;
  
-                Register[r0] = ~Register[r1]
+                Register[r0] = ~Registers[r1]
                 update_flags(r0)
                 break;
  
@@ -215,14 +221,17 @@ func main() {
                         break;
 
                     case TRAP_OUT:
-
+                var ch byte = Registers[R_R0][7:];
+                        writer := bufio.NewWriter(os.Stdout)
+                        fmt.Fprintf(writer, ch)
+                        writer.Flush();
                         break;
 
                     case TRAP_PUTS:
                         var c *uint16 = Memory + Registers[R_R0];
-                        var writer := bufio.NewWriter(os.Stdout)
+                        writer := bufio.NewWriter(os.Stdout)
                         for (*c) {
-                            fmt.Fprintf("%c", c)
+                            fmt.Fprintf(writer, c)
                             *c = 1 + *c
                             c = c + 1
                         }
@@ -230,14 +239,31 @@ func main() {
                         break;
 
                     case TRAP_IN:
-                        
+                        writer := bufio.NewWriter(os.Stdout)
+                        fmt.Fprintf(writer, "$_ ")
+                        ch := os.Stdin.Read()
+                        fmt.Fprintf("%c", ch)
+                        writer.Flush();
+                        Registers[R_R0] = uint16(ch)
+                        update_flags(Registers[R_R0])
                         break;
+
                     case TRAP_PUTSP:
-                        
+                        var c *uint16 = Memory + Registers[R_R0];
+                        writer := bufio.NewWriter(os.Stdout)
+                        for (*c) { 
+                            var ch1 byte = byte(*c & 0xFF);
+                            fmt.Fprintf(writer, ch1)
+                            var ch2 byte = *c >> 8;
+                            if (ch2) { fmt.Fprintf(writer, ch2) };
+                            c = c + 1
+                        }
+                        writer.Flush();
                         break;
+
                     case TRAP_HALT:
-                        
-                        break;
+                        fmt.Println("Program halt.")
+                        os.Exit(0)
                 }
                 break;
             case OP_RES:
@@ -245,7 +271,7 @@ func main() {
             case OP_RTI:
                 abort("BAD OPCODE: 'RTI'")
             default:
- 
+                
                 break;
         }
  
@@ -253,24 +279,24 @@ func main() {
  
 }
  
-func sign_extend(x uint16, bit_count int) {
-    if (x >> (bit_count - 1) & 1 {
+func sign_extend(x uint16, bit_count int) uint16 {
+    if ( (x >> ( bit_count - 1 ) ) & 1 ) {
         x = x | (0xFFF << bit_count)
     }
     return x
 }
  
 func update_flags(r uint16) {
-    if reg[r] == 0 {
-        reg[R_COND] = FL_ZRO
-    } else if reg[r] >> 15 {
-        reg[R_COND] = FL_NEG
+    if Registers[r] == 0 {
+        Registers[R_COND] = FL_ZRO
+    } else if (Registers[r] >> 15) {
+        Registers[R_COND] = FL_NEG
     } else {
-        reg[R_COND] = FL_POS
+        Registers[R_COND] = FL_POS
     }
 }
  
 func abort(str string) {
     fmt.Printf("<!> Error:\t%s", str)
-    os.exit(1)
+    os.Exit(1)
 }
