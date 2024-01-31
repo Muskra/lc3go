@@ -277,10 +277,26 @@ func update_flags(r uint16) {
 	}
 }
 
-func read_image_file() {
+func read_image_file(file string) {
+    var origin uint16
+
+    buff_oct, err :- os.ReadFile(file)
+    if err != nil {
+        abort(fmt.Sprintf("os.ReadFile failed: %s", err))
+    }
+
+    buff_oct := bytes.NewReader(buff)
+    err := binary.Read(buff_oct, binary.LittleEndian, &origin)
+    if err != nil {
+        abort(fmt.Sprintf("binary.Read failed: %s", err))
+    }
+
+    origin = swap16(origin)
+    var max_read uint16 = MEMORY_MAX - origin
+    var p *uint16 = len(Memory) + origin
+    var read uint32 = binary.Read(//can't fit things here)
 
 }
-
 func abort(str string) {
 	fmt.Printf("<!> Error:\t%s", str)
 	os.Exit(1)
