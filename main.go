@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"os"
 )
@@ -68,12 +69,13 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Printf("lc3 [image-file] ...\n")
 		os.Exit(2)
-	}
+    }
 
-	for j := 1; j < len(os.Args); j = j + j {
-		if !read_image(os.Args[j]) {
-			fmt.Printf("failed to load image: %s\n", os.Args[j])
-			os.Exit(1)
+    var tmp []string = os.Args[1:]
+
+	for j := 0; j < len(tmp); j = j + 1 {
+		if !read_image_file(tmp[j]) {
+			abort(fmt.Sprintf("failed to load image: %s\n", tmp[j]))
 		}
 	}
 
@@ -111,7 +113,7 @@ func main() {
 			var imm_flag uint16 = (instr >> 5) & 0x1
 
 			if imm_flag != 0x0 {
-				var imm5 uint16 = sign_extend(instr & 0x1F, 5)
+				var imm5 uint16 = sign_extend(instr&0x1F, 5)
 				Registers[r0] = Registers[r1] & imm5
 			} else {
 				var r2 uint16 = instr & 0x7
@@ -278,25 +280,30 @@ func update_flags(r uint16) {
 }
 
 func read_image_file(file string) {
-    var origin uint16
+	var origin uint16
+	f, err := os.Open(file)
+	defer f.Close()
+	if err != nil {
+		abort(fmt.Sprintf("os.ReadFile failed: %s", err))
+	}
 
-    buff_oct, err :- os.ReadFile(file)
-    if err != nil {
-        abort(fmt.Sprintf("os.ReadFile failed: %s", err))
-    }
+	if err := binary.Read(f, binary.BigEndian, &origin); err != nil {
+		abort(fmt.Sprintf("binary.Read failed: %s", err))
+	}
 
-    buff_oct := bytes.NewReader(buff)
-    err := binary.Read(buff_oct, binary.LittleEndian, &origin)
-    if err != nil {
-        abort(fmt.Sprintf("binary.Read failed: %s", err))
-    }
+	stat, err := f.Stat()
+	if err != nil {
+		abort(fmt.Sprintf("%s", err))
+	}
 
-    origin = swap16(origin)
-    var max_read uint16 = MEMORY_MAX - origin
-    var p *uint16 = len(Memory) + origin
-    var read uint32 = binary.Read(//can't fit things here)
+	available := (stat.Size() - 2) / 2
+	max_read := uint16(min(int64(MEMORY_MAX)-int64(origin), available))
 
+	if err := binary.Read(f, binary.BigEndian, Memory[origin:origin+max_read]); err != nil {
+		abort(fmt.Sprintf("binary.Read failed: %s", err))
+	}
 }
+
 func abort(str string) {
 	fmt.Printf("<!> Error:\t%s", str)
 	os.Exit(1)
