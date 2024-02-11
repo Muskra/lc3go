@@ -47,21 +47,20 @@ const (
 	OP_RES         // reserved (unused)
 	OP_LEA         // load effective address
 	OP_TRAP        // execute trap
-)
 
-const (
 	FL_POS uint16 = (1 << 0) // P
 	FL_ZRO uint16 = (1 << 1) // Z
 	FL_NEG uint16 = (1 << 2) // N
-)
 
-const (
 	TRAP_GETC  uint16 = 0x20 // get character from keyboardn bot echoed to the terminal
 	TRAP_OUT   uint16 = 0x21 // output a character
 	TRAP_PUTS  uint16 = 0x22 // output a word string
 	TRAP_IN    uint16 = 0x23 // get character from keyboard, echoed to the terminal
 	TRAP_PUTSP uint16 = 0x24 // output a byte string
 	TRAP_HALT  uint16 = 0x25 // halt the program
+
+    MR_KBSR uint16 = 0xFE00 // keyboard status
+    MR_KBDR uint16 = 0xFE02 // keyboard data
 )
 
 func main() {
@@ -74,8 +73,8 @@ func main() {
     var tmp []string = os.Args[1:]
 
 	for j := 0; j < len(tmp); j = j + 1 {
-		if !read_image_file(tmp[j]) {
-			abort(fmt.Sprintf("failed to load image: %s\n", tmp[j]))
+        if err := read_image_file(tmp[j]) ; err != nil {
+            abort(fmt.Sprintf("failed to load image: %s\nwith error:\t%s", tmp[j], err))
 		}
 	}
 
@@ -279,29 +278,60 @@ func update_flags(r uint16) {
 	}
 }
 
-func read_image_file(file string) {
+func read_image_file(file string) error {
 	var origin uint16
 	f, err := os.Open(file)
 	defer f.Close()
 	if err != nil {
-		abort(fmt.Sprintf("os.ReadFile failed: %s", err))
+        return fmt.Errorf("read_image_file() -> %s", err)
 	}
 
 	if err := binary.Read(f, binary.BigEndian, &origin); err != nil {
-		abort(fmt.Sprintf("binary.Read failed: %s", err))
+        return fmt.Errorf("read_image_file() -> %s", err)
 	}
 
 	stat, err := f.Stat()
 	if err != nil {
-		abort(fmt.Sprintf("%s", err))
+        return fmt.Errorf("read_file_image() -> %s", err)
 	}
 
 	available := (stat.Size() - 2) / 2
 	max_read := uint16(min(int64(MEMORY_MAX)-int64(origin), available))
 
 	if err := binary.Read(f, binary.BigEndian, Memory[origin:origin+max_read]); err != nil {
-		abort(fmt.Sprintf("binary.Read failed: %s", err))
+        return fmt.Errorf("read_image_file() -> %s", err)
 	}
+
+    return nil
+}
+
+func mem_write(address uint16, val uint16) {
+    Memory[address] = val
+}
+
+func mem_read(address uint16) uint16 {
+    if address == MR_KBSR {
+        if check_key() {
+            Memory[MR_KBSR] = (1 << 15)
+            b, err := getchar()
+            if err != nil {
+                abort(fmt.Sprintf("mem_read() -> %s", err))
+            }
+            Memory[MR_KBDR] = uint16(b)
+        } else {
+            Memory[MR_KBSR] = 0
+        }
+    }
+    return Memory[address]
+}
+
+func getchar() (byte, error) {
+    reader := bufio.NewReader(os.Stdin)
+    b, err := reader.ReadByte()
+    if err != nil {
+        return 0, err
+    }
+    return b, nil
 }
 
 func abort(str string) {
