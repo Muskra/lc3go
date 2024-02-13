@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+    "syscall"
 )
 
 const MEMORY_MAX int = 65536
@@ -62,6 +63,8 @@ const (
     MR_KBSR uint16 = 0xFE00 // keyboard status
     MR_KBDR uint16 = 0xFE02 // keyboard data
 )
+
+var Original_tio syscall.Termios
 
 func main() {
 
@@ -324,6 +327,18 @@ func mem_read(address uint16) uint16 {
     }
     return Memory[address]
 }
+
+func disable_input_buffering() {
+    // tcgetattr() seems to be this in Go
+    syscall.Getxattr(syscall.STDIN_FILENO, syscall.TCSCANOW, &Original_tio) // path string, attr string, dest []byte
+    var new_tio syscall.Termios = Original_tio
+    // i'm not sure if this solution is ideal, maybe Go already have a console handling thing
+    // if not we will try to do the same thing mannually. maybe making a console emulator may be the best choice to be reusable
+    new_tio.Cflag &= ^syscall.ICANON & ^syscall.ECHO
+    syscall.Tcsgetattr()
+    
+}
+
 
 func getchar() (byte, error) {
     reader := bufio.NewReader(os.Stdin)
