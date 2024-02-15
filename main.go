@@ -1,11 +1,35 @@
 package main
 
+//struct termios original_tio;
+//void disable_input_buffering()
+//{
+//    tcgetattr(STDIN_FILENO, &original_tio);
+//    struct termios new_tio = original_tio;
+//    new_tio.c_lflag &= ~ICANON & ~ECHO;
+//    tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
+//}
+//void restore_input_buffering()
+//{
+//    tcsetattr(STDIN_FILENO, TCSANOW, &original_tio);
+//}
+//uint16_t check_key()
+//{
+//    fd_set readfds;
+//    FD_ZERO(&readfds);
+//    FD_SET(STDIN_FILENO, &readfds);
+//    struct timeval timeout;
+//    timeout.tv_sec = 0;
+//    timeout.tv_usec = 0;
+//    return select(1, &readfds, NULL, NULL, &timeout) != 0;
+//}
+
 import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
 	"os"
     "syscall"
+    "C"
 )
 
 const MEMORY_MAX int = 65536
@@ -207,12 +231,17 @@ func main() {
 		case OP_TRAP:
 			switch instr & 0xFF {
 			case TRAP_GETC:
-				Registers[R_R0] = os.Stdin.Read()
-				update_flags(R_R0)
+                ch, err := getchar()
+                if err != nil {
+                    abort(fmt.Sprintf("OP_TRAP getchar() -> %s", err))
+                }
+                Registers[R_R0] = uint16(ch)
+				update_flags(uint16(R_R0))
 
 			case TRAP_OUT:
-				var ch byte = Registers[R_R0][7:]
-				writer := bufio.NewWriter(os.Stdout)
+				//var ch byte = Registers[R_R0][7:]
+				var ch byte = byte(Registers[R_R0] >> 0x8)
+                writer := bufio.NewWriter(os.Stdout)
 				fmt.Fprintf(writer, ch)
 				writer.Flush()
 
@@ -229,7 +258,10 @@ func main() {
 			case TRAP_IN:
 				writer := bufio.NewWriter(os.Stdout)
 				fmt.Fprintf(writer, "$_ ")
-				ch := os.Stdin.Read()
+                ch, err := getchar()
+                if err != nil {
+                    abort(fmt.Sprintf("TRAP_IN getchar() -> %s", err))
+                }
 				fmt.Fprintf("%c", ch)
 				writer.Flush()
 				Registers[R_R0] = uint16(ch)
@@ -314,7 +346,7 @@ func mem_write(address uint16, val uint16) {
 
 func mem_read(address uint16) uint16 {
     if address == MR_KBSR {
-        if check_key() {
+        if C.check_key() {
             Memory[MR_KBSR] = (1 << 15)
             b, err := getchar()
             if err != nil {
@@ -326,17 +358,6 @@ func mem_read(address uint16) uint16 {
         }
     }
     return Memory[address]
-}
-
-func disable_input_buffering() {
-    // tcgetattr() seems to be this in Go
-    syscall.Getxattr(syscall.STDIN_FILENO, syscall.TCSCANOW, &Original_tio) // path string, attr string, dest []byte
-    var new_tio syscall.Termios = Original_tio
-    // i'm not sure if this solution is ideal, maybe Go already have a console handling thing
-    // if not we will try to do the same thing mannually. maybe making a console emulator may be the best choice to be reusable
-    new_tio.Cflag &= ^syscall.ICANON & ^syscall.ECHO
-    syscall.Tcsgetattr()
-    
 }
 
 
